@@ -1,0 +1,888 @@
+********************************************Creating Boot Project***************************
+
+Dependencies Used
+  web
+  H2 database
+  Spring Data JPA
+  SpringBootActuator
+  SpringBoot DevTools
+  Lombok		//Java annotation library which helps to reduce boilerplate code. 
+  Validation		//Bean validation with Hibernate validator
+  
+  
+Project Metadata---> 
+  Group--> com.eazybytes
+  Artifact--> accounts
+  Name--> accounts  (In my case, It was automatically defined while defining Artifact)
+  Description--> Demo Project for Spring Boot
+  Package Name--> com.eazybytes.accounts	(Automatically defined)
+  
+
+  
+Spring Boot DevTools---> It is for development phase. DevOps teams are smart enough that DevTools should be enabled only for development phase.
+
+
+accounts
+  src/main/java
+    com.eazybytes.accounts
+      >AccountsApplication.java
+    com.eazybytes.accounts.constants
+      >AccountsConstants.java
+    com.eazybytes.accounts.controller
+      >AccountsController.java
+    com.eazybytes.accounts.dto
+      >AccountsDto.java
+      >CustomerDto.java
+      >ErrorResponseDto.java
+      >ResponseDto.java
+    com.eazybytes.accounts.entity
+      >Accounts.java
+      >BaseEntity.java
+      >Customer.java
+    com.eazybytes.accounts.exception
+      >CustomerAlreadyExistsException.java
+      >GlobalExceptionHandler.java
+      >ResourceNotFoundException.java
+    com.eazybytes.accounts.mapper
+      >AccountsMapper.java
+      >CustomerMapper.java
+    com.eazybytes.accounts.repository
+      >AccountsRepository.java
+      >CustomerRepository.java
+    com.eazybytes.accounts.service
+      >IAccountsService.java
+    com.eazybytes.accounts.service.impl
+      >AccountsServiceImpl.java
+  src/main/resources
+    static 
+    templates
+    application.yml
+    schema.sql
+  src/test/java
+  JRE System Library
+  Maven Dependencies
+  src
+    main
+      java
+      resources
+  target
+  HELP.md
+  mvnw
+  mvnw.cmd
+  pom.xml
+  
+  
+
+---------------------------------  
+com.eazybytes.accounts
+  AccountsApplication.java
+---------------------------------
+package com.eazybytes.accounts;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class AccountsApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(AccountsApplication.class, args);
+	}
+
+}
+
+********************************************
+com.eazybytes.accounts.constants
+      >AccountsConstants.java
+********************************************
+--------------------------
+AccountsConstants.java
+--------------------------
+
+package com.eazybytes.accounts.constants;
+
+public final class AccountsConstants {
+
+	private AccountsConstants() {
+		// restrict instantiation
+	}
+
+	public static final String SAVINGS = "Savings";
+	public static final String ADDRESS = "123 Main Street, New York";
+	public static final String STATUS_201 = "201";
+	public static final String MESSAGE_201 = "Account created successfully";
+	public static final String STATUS_200 = "200";
+	public static final String MESSAGE_200 = "Request processed successfully";
+	public static final String STATUS_417 = "417";
+	public static final String MESSAGE_417_UPDATE = "Update operation failed. Please try again or contact Dev team";
+	public static final String  MESSAGE_417_DELETE= "Delete operation failed. Please try again or contact Dev team";
+}
+
+
+
+
+*******************************************
+com.eazybytes.accounts.controller
+      >AccountsController.java
+*******************************************
+---------------------------
+AccountsController.java
+---------------------------
+package com.eazybytes.accounts.controller;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.eazybytes.accounts.constants.AccountsConstants;
+import com.eazybytes.accounts.dto.CustomerDto;
+import com.eazybytes.accounts.dto.ResponseDto;
+import com.eazybytes.accounts.service.IAccountsService;
+
+import lombok.AllArgsConstructor;
+
+@RestController
+@RequestMapping(path="/api",produces= {MediaType.APPLICATION_JSON_VALUE})
+@AllArgsConstructor
+public class AccountsController {
+	
+	private IAccountsService iAccountsService;
+
+	@PostMapping("/create")
+	public ResponseEntity<ResponseDto> createAccount(@RequestBody CustomerDto customerDto){
+		iAccountsService.createAccount(customerDto);
+		return ResponseEntity
+				.status(HttpStatus.CREATED)
+				.body(new ResponseDto(AccountsConstants.STATUS_201,AccountsConstants.MESSAGE_201));
+	}
+	@GetMapping("/fetch")
+	public ResponseEntity<CustomerDto> fetchAccountDetails(@RequestParam String mobileNumber) {
+		CustomerDto customerDto = iAccountsService.fetchAccount(mobileNumber);
+		return ResponseEntity.status(HttpStatus.OK).body(customerDto);
+	}
+	@PutMapping("/update")
+        public ResponseEntity<ResponseDto> updateAccountDetails(@Valid @RequestBody CustomerDto customerDto) {
+		boolean isUpdated = iAccountsService.updateAccount(customerDto);
+		if(isUpdated) {
+		    return ResponseEntity
+		            .status(HttpStatus.OK)
+		            .body(new ResponseDto(AccountsConstants.STATUS_200, AccountsConstants.MESSAGE_200));
+		}else{
+		    return ResponseEntity
+		            .status(HttpStatus.EXPECTATION_FAILED)
+		            .body(new ResponseDto(AccountsConstants.STATUS_417, AccountsConstants.MESSAGE_417_UPDATE));
+		}
+    	}
+    	@DeleteMapping("/delete")
+        public ResponseEntity<ResponseDto> deleteAccountDetails(@RequestParam String mobileNumber) {
+        boolean isDeleted = iAccountsService.deleteAccount(mobileNumber);
+        if(isDeleted) {
+            return ResponseEntity
+                    .status(HttpStatus.OK)
+                    .body(new ResponseDto(AccountsConstants.STATUS_200, AccountsConstants.MESSAGE_200));
+        }else{
+            return ResponseEntity
+                    .status(HttpStatus.EXPECTATION_FAILED)
+                    .body(new ResponseDto(AccountsConstants.STATUS_417, AccountsConstants.MESSAGE_417_DELETE));
+        }
+    }
+
+	
+}
+
+###################################################
+produces= {MediaType.APPLICATION_JSON_VALUE} - It specifies that the response is in JSON format. Writting this is a good practice.
+Request will be coming in the form of Request Body. 
+We need to convert CustomerDto into Customer object to store the customer details into database. In the same way, we will convert Customer object into CustomerDto when accessing customer details from the database. For this, we need CustomerMapper. 
+###################################################
+
+
+
+************************************************************
+com.eazybytes.accounts.dto
+      >AccountsDto.java
+      >CustomerDto.java
+      >ErrorResponseDto.java
+      >ResponseDto.java
+************************************************************
+----------------------
+AccountsDto.java
+----------------------
+package com.eazybytes.accounts.dto;
+
+import lombok.Data;
+
+@Data
+public class AccountsDto {
+
+	private Long accountNumber;
+
+	private String accountType;
+
+	private String branchAddress;
+}
+
+
+###############################################
+We did not mention customerId in this class because We don't want to send customerId to client application. 
+@Data is the combination of --->
+* Getter
+* Setter
+* RequiredArgsConstructor
+* ToString
+* EqualsAndHashCode
+* lombok.Value
+#################################################
+
+----------------------
+CustomerDto.java
+----------------------
+package com.eazybytes.accounts.dto;
+
+import lombok.Data;
+
+@Data
+public class CustomerDto {
+
+	private String name;
+
+	private String email;
+
+	private String mobileNumber;
+	
+	private AccountsDto accountsDto;
+
+}
+
+##############################################################################################
+We dont want to send customerId to client application so, we didn't mention the customerId. 
+##############################################################################################
+
+-------------------------------
+ErrorResponseDto.java				
+-------------------------------
+package com.eazybytes.accounts.dto;
+
+import java.time.LocalDateTime;
+
+import org.springframework.http.HttpStatus;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data@AllArgsConstructor
+public class ErrorResponseDto {
+
+	private String apiPath;	
+	private HttpStatus errorCode;
+	private String errorMessag;
+	private LocalDateTime errorTime;
+}
+
+
+#########################################################################
+It is just to send un-successful status report to the client application.
+######################################################################### 
+
+---------------------------
+ResponseDto.java
+---------------------------
+package com.eazybytes.accounts.dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data @AllArgsConstructor
+public class ResponseDto {
+
+	private String statusCode;
+	
+	private String statusMsg;
+}
+
+#########################################################
+This Dto is to send successful report to the client a
+application. 
+#########################################################
+
+
+
+
+-----------------------------------
+com.eazybytes.accounts.entity
+      >Accounts.java
+      >BaseEntity.java
+      >Customer.java
+-----------------------------------
+package com.eazybytes.accounts.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter@Setter@ToString@AllArgsConstructor@NoArgsConstructor
+public class Accounts extends BaseEntity{
+
+	
+	@Column(name="customer_id")
+	private Long customerId;
+	
+	@Column(name="account_number")
+	@Id
+	private Long accountNumber;
+	
+	@Column(name="account_type")
+	private String accountType;
+	
+	@Column(name="branch_address")
+	private String branchAddress;
+	
+	
+}
+
+##########################################################
+We are not using @GenereatedValue because we don't want to increment account number like 1,2 and so on automatically. We will generate account from the programme. 
+###########################################################
+
+-----------------------------------
+BaseEntity.java
+-----------------------------------
+package com.eazybytes.accounts.entity;
+
+import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.MappedSuperclass;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+
+@MappedSuperclass
+@Getter@Setter@ToString
+public class BaseEntity {
+	
+	@Column(updatable=false)
+	private LocalDateTime createdAt;
+	
+	@Column(updatable=false)
+	private String createdBy;
+	
+	@Column(insertable=false)		//It means at the time of new record, this value will be null. 
+	private LocalDateTime updatedAt;  
+	
+	@Column(insertable=false)		//It means at the time of new record, this value will be null. 
+	private String updatedBy;
+}
+
+
+----------------------------------
+Customer.java
+-----------------------------------
+package com.eazybytes.accounts.entity;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+
+@Entity
+@Getter@Setter@ToString@AllArgsConstructor@NoArgsConstructor
+public class Customer extends BaseEntity{
+
+	@Id
+	@GeneratedValue(strategy=GenerationType.IDENTITY)
+	@Column(name="customer_id")
+	private Long customerId;
+	
+	private String name;
+	
+	private String email;
+	
+	@Column(name="mobile_number")
+	private String mobileNumber;
+	
+	
+}
+
+################################################################
+We don't need to use @Table annotation because table name and entity name are same. 
+We don't need to mention @Column annotaion because entity field name (customerId) and table field name (customer_id) are same.
+################################################################
+
+********************************************
+com.eazybytes.accounts.exception
+      >CustomerAlreadyExistsException.java
+      >GlobalExceptionHandler.java
+      >ResourceNotFoundException.java
+********************************************
+---------------------------------------
+CustomerAlreadyExistsException.java
+---------------------------------------
+package com.eazybytes.accounts.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(value=HttpStatus.BAD_REQUEST)
+public class CustomerAlreadyExistsException extends RuntimeException{
+
+	public CustomerAlreadyExistsException(String message) {
+		super(message);
+	}
+}
+
+--------------------------------
+GlobalExceptionHandler.java
+--------------------------------
+package com.eazybytes.accounts.exception;
+
+import java.time.LocalDateTime;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ControllerAdvice;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.context.request.WebRequest;
+
+import com.eazybytes.accounts.dto.ErrorResponseDto;
+
+@ControllerAdvice
+public class GlobalExceptionHandler {
+
+	@ExceptionHandler(CustomerAlreadyExistsException.class)
+    public ResponseEntity<ErrorResponseDto> handleCustomerAlreadyExistsException(CustomerAlreadyExistsException exception,
+                                                                                 WebRequest webRequest){
+        ErrorResponseDto errorResponseDTO = new ErrorResponseDto(
+                webRequest.getDescription(false),
+                HttpStatus.BAD_REQUEST,
+                exception.getMessage(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponseDTO, HttpStatus.BAD_REQUEST);
+    }
+     @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponseDto> handleResourceNotFoundException(ResourceNotFoundException exception,
+                                                                                 WebRequest webRequest) {
+        ErrorResponseDto errorResponseDTO = new ErrorResponseDto(
+                webRequest.getDescription(false),
+                HttpStatus.NOT_FOUND,
+                exception.getMessage(),
+                LocalDateTime.now()
+        );
+        return new ResponseEntity<>(errorResponseDTO, HttpStatus.NOT_FOUND);
+    }
+}
+
+--------------------------------
+ResourceNotFoundException.java
+--------------------------------
+package com.eazybytes.accounts.exception;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.ResponseStatus;
+
+@ResponseStatus(value=HttpStatus.NOT_FOUND)
+public class ResourceNotFoundException extends RuntimeException{
+
+	public ResourceNotFoundException(String resourceName,String fieldName,String fieldValue) {
+		super(String.format("%s not found with the given input data %s:'%s'",resourceName,fieldName,fieldValue));
+	}
+}
+
+
+
+**************************************
+com.eazybytes.accounts.mapper
+      >AccountsMapper.java
+      >CustomerMapper.java
+**************************************
+---------------------
+AccountsMapper.java
+---------------------
+package com.eazybytes.accounts.mapper;
+
+import com.eazybytes.accounts.dto.AccountsDto;
+import com.eazybytes.accounts.entity.Accounts;
+
+public class AccountsMapper {
+
+	public static AccountsDto mapToAccountsDto(Accounts accounts, AccountsDto accountsDto) {
+        accountsDto.setAccountNumber(accounts.getAccountNumber());
+        accountsDto.setAccountType(accounts.getAccountType());
+        accountsDto.setBranchAddress(accounts.getBranchAddress());
+        return accountsDto;
+    }
+
+    public static Accounts mapToAccounts(AccountsDto accountsDto, Accounts accounts) {
+        accounts.setAccountNumber(accountsDto.getAccountNumber());
+        accounts.setAccountType(accountsDto.getAccountType());
+        accounts.setBranchAddress(accountsDto.getBranchAddress());
+        return accounts;
+    }
+}
+
+-------------------------
+CustomerMapper.java
+-------------------------
+package com.eazybytes.accounts.mapper;
+
+import com.eazybytes.accounts.dto.CustomerDto;
+import com.eazybytes.accounts.entity.Customer;
+
+public class CustomerMapper {
+
+	public static CustomerDto mapToCustomerDto(Customer customer, CustomerDto customerDto) {
+        customerDto.setName(customer.getName());
+        customerDto.setEmail(customer.getEmail());
+        customerDto.setMobileNumber(customer.getMobileNumber());
+        return customerDto;
+    }
+
+    public static Customer mapToCustomer(CustomerDto customerDto, Customer customer) {
+        customer.setName(customerDto.getName());
+        customer.setEmail(customerDto.getEmail());
+        customer.setMobileNumber(customerDto.getMobileNumber());
+        return customer;
+    }
+}
+
+
+
+
+***********************************************
+com.eazybytes.accounts.repository
+      >AccountsRepository.java
+      >CustomerRepository.java
+***********************************************
+
+---------------------------------
+AccountsRepository.java
+---------------------------------
+package com.eazybytes.accounts.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.eazybytes.accounts.entity.Accounts;
+
+@Repository
+public interface AccountsRepository extends JpaRepository<Accounts,Long>{
+
+	Optional<Accounts> findByCustomerId(Long id);
+	
+	@Transactional 
+        @Modifying 
+        void deleteByCustomerId(Long customerId);
+
+}
+
+
+#####################################################
+@Modifying will tell to the spring data jpa framework that the below method is going to modify the data, so please execute the query of this method inside a transaction. When spring data jpa runs query inside transaction and if there is some error happens at runtime, any partial change of data due to queries will be rolled back because entire transaction will be rolled back by spring data jpa. 
+
+------------------------------
+CustomerRepository.java
+------------------------------
+package com.eazybytes.accounts.repository;
+
+import java.util.Optional;
+
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import com.eazybytes.accounts.entity.Customer;
+
+@Repository
+public interface CustomerRepository extends JpaRepository<Customer,Long>{
+
+	Optional<Customer> findByMobileNumber(String mobileNumber);
+}
+
+****************************************
+com.eazybytes.accounts.service
+      >IAccountsService.java
+****************************************
+
+--------------------------
+IAccountsService.java
+--------------------------
+package com.eazybytes.accounts.service;
+
+import com.eazybytes.accounts.dto.CustomerDto;
+
+public interface IAccountsService {
+
+	/**
+	 * @param customerDto-customerDto Object
+	 */
+	void createAccount(CustomerDto customerDto);
+	
+	CustomerDto fetchAccount(String mobileNumber);
+	
+       /**
+       *
+       * @param customerDto - CustomerDto Object
+       * @return boolean indicating if the update of Account details is successful or not
+       */
+       boolean updateAccount(CustomerDto customerDto);
+       
+       /**
+       *
+       * @param mobileNumber - Input Mobile Number
+       * @return boolean indicating if the delete of Account details is successful or not
+       */
+       boolean deleteAccount(String mobileNumber);
+
+}
+
+****************************************
+com.eazybytes.accounts.service.impl
+      >AccountsServiceImpl.java
+****************************************
+----------------------------
+AccountsServiceImpl.java
+----------------------------
+package com.eazybytes.accounts.service.impl;
+
+import java.time.LocalDateTime;
+import java.util.Optional;
+import java.util.Random;
+
+import org.springframework.stereotype.Service;
+
+import com.eazybytes.accounts.constants.AccountsConstants;
+import com.eazybytes.accounts.dto.CustomerDto;
+import com.eazybytes.accounts.entity.Accounts;
+import com.eazybytes.accounts.entity.Customer;
+import com.eazybytes.accounts.exception.CustomerAlreadyExistsException;
+import com.eazybytes.accounts.mapper.CustomerMapper;
+import com.eazybytes.accounts.repository.AccountsRepository;
+import com.eazybytes.accounts.repository.CustomerRepository;
+import com.eazybytes.accounts.service.IAccountsService;
+
+import lombok.AllArgsConstructor;
+
+@Service@AllArgsConstructor
+public class AccountsServiceImpl implements IAccountsService{
+
+	private AccountsRepository accountsRepository;
+	private CustomerRepository customerRepository;
+	/**
+	 * @param customerDto-customerDto Object
+	 */
+	@Override
+	public void createAccount(CustomerDto customerDto) {
+		Customer customer = CustomerMapper.mapToCustomer(customerDto, new Customer());
+		Optional<Customer> optionalCustomer=customerRepository.findByMobileNumber(customerDto.getMobileNumber());
+		if(optionalCustomer.isPresent()) {
+			throw new CustomerAlreadyExistsException("Customer already registered with give mobileNumber"
+					+customerDto.getMobileNumber());
+		}
+		customer.setCreatedAt(LocalDateTime.now());
+		customer.setCreatedBy("Anonymous");
+		customerRepository.save(customer);
+		accountsRepository.save(createNewAccount(customer));
+	}
+	/**
+     * @param customer - Customer Object
+     * @return the new account details
+     */
+    private Accounts createNewAccount(Customer customer) {
+        Accounts newAccount = new Accounts();
+        newAccount.setCustomerId(customer.getCustomerId());
+        long randomAccNumber = 1000000000L + new Random().nextInt(900000000);
+
+        newAccount.setAccountNumber(randomAccNumber);
+        newAccount.setAccountType(AccountsConstants.SAVINGS);
+        newAccount.setBranchAddress(AccountsConstants.ADDRESS);
+        newAccount.setCreatedAt(LocalDateTime.now());
+        newAccount.setCreatedBy("Anonymous");
+        return newAccount;
+    }
+    @Override
+	public CustomerDto fetchAccount(String mobileNumber) {
+		Customer customer = customerRepository.findByMobileNumber(mobileNumber)
+				.orElseThrow(() -> new ResourceNotFoundException("Customer", "mobileNumber", mobileNumber));
+		Accounts accounts = accountsRepository.findByCustomerId(customer.getCustomerId()).orElseThrow(
+                () -> new ResourceNotFoundException("Account", "customerId", customer.getCustomerId().toString())
+        );
+		CustomerDto customerDto = CustomerMapper.mapToCustomerDto(customer, new CustomerDto());
+		customerDto.setAccountsDto(AccountsMapper.mapToAccountsDto(accounts, new AccountsDto()));
+		return customerDto;
+    }
+    
+    /**
+     * @param customerDto - CustomerDto Object
+     * @return boolean indicating if the update of Account details is successful or not
+     */
+    @Override
+    public boolean updateAccount(CustomerDto customerDto) {
+        boolean isUpdated = false;
+        AccountsDto accountsDto = customerDto.getAccountsDto();
+        if(accountsDto !=null ){
+            Accounts accounts = accountsRepository.findById(accountsDto.getAccountNumber()).orElseThrow(
+                    () -> new ResourceNotFoundException("Account", "AccountNumber", accountsDto.getAccountNumber().toString())
+            );
+            AccountsMapper.mapToAccounts(accountsDto, accounts);
+            accounts = accountsRepository.save(accounts);
+
+            Long customerId = accounts.getCustomerId();
+            Customer customer = customerRepository.findById(customerId).orElseThrow(
+                    () -> new ResourceNotFoundException("Customer", "CustomerID", customerId.toString())
+            );
+            CustomerMapper.mapToCustomer(customerDto,customer);
+            customerRepository.save(customer);
+            isUpdated = true;
+        }
+        return  isUpdated;
+    }
+    /**
+     * @param customerDto - CustomerDto Object
+     * @return boolean indicating if the update of Account details is successful or not
+     */
+    @Override
+    public boolean updateAccount(CustomerDto customerDto) {
+        boolean isUpdated = false;
+        AccountsDto accountsDto = customerDto.getAccountsDto();
+        if(accountsDto !=null ){
+            Accounts accounts = accountsRepository.findById(accountsDto.getAccountNumber()).orElseThrow(
+                    () -> new ResourceNotFoundException("Account", "AccountNumber", accountsDto.getAccountNumber().toString())
+            );
+            AccountsMapper.mapToAccounts(accountsDto, accounts);
+            accounts = accountsRepository.save(accounts);
+
+            Long customerId = accounts.getCustomerId();
+            Customer customer = customerRepository.findById(customerId).orElseThrow(
+                    () -> new ResourceNotFoundException("Customer", "CustomerID", customerId.toString())
+            );
+            CustomerMapper.mapToCustomer(customerDto,customer);
+            customerRepository.save(customer);
+            isUpdated = true;
+        }
+        return  isUpdated;
+    }
+     /**
+     * @param mobileNumber - Input Mobile Number
+     * @return boolean indicating if the delete of Account details is successful or not
+     */
+    @Override
+    public boolean deleteAccount(String mobileNumber) {
+        Customer customer = customerRepository.findByMobileNumber(mobileNumber).orElseThrow(
+                () -> new ResourceNotFoundException("Customer", "mobileNumber", mobileNumber)
+        );
+        accountsRepository.deleteByCustomerId(customer.getCustomerId());
+        customerRepository.deleteById(customer.getCustomerId());
+        return true;
+    }
+	
+
+}
+
+##########################################################################################################
+Since there is only constructor (due to @AllArgsConstructor), No need to mentions @Autowired annotation. 
+##########################################################################################################
+
+
+------------------------
+application.yml
+------------------------
+server:
+  port: 8080
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driverClassName: org.h2.Driver
+    username: sa
+    password: ''
+  h2:
+    console:
+      enabled: true
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+
+##############################################
+Description--> 
+spring:
+  h2:
+    console:
+      enabled:true	//We are telling to spring boot to enable the h2 console, so that we can login to h2 console from b	
+			//browser
+			
+spring:
+  jpa:
+    hibernate
+      ddl-auto:update  //We are telling to spring boot framework, if there are no table is created in our h2 database
+                       //please create that table during the application start-up. 
+                       
+################################################
+
+
+---------------
+schema.sql
+---------------
+CREATE TABLE IF NOT EXISTS `customer` (
+  `customer_id` int AUTO_INCREMENT  PRIMARY KEY,
+  `name` varchar(100) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `mobile_number` varchar(20) NOT NULL,
+  `created_at` date NOT NULL,
+  `created_by` varchar(20) NOT NULL,
+  `updated_at` date DEFAULT NULL,
+    `updated_by` varchar(20) DEFAULT NULL
+);
+
+CREATE TABLE IF NOT EXISTS `accounts` (
+  `customer_id` int NOT NULL,
+   `account_number` int AUTO_INCREMENT  PRIMARY KEY,
+  `account_type` varchar(100) NOT NULL,
+  `branch_address` varchar(200) NOT NULL,
+  `created_at` date NOT NULL,
+   `created_by` varchar(20) NOT NULL,
+   `updated_at` date DEFAULT NULL,
+    `updated_by` varchar(20) DEFAULT NULL
+);
+
+
+
+
+---------------------------------------------------
+Inside postman--->  
+
+POST=>  http://localhost:8080/api/create
+{
+  "name": "Madan Reddy",
+  "email": "tutor@eazybytes",
+  "mobileNumber": "4354437687"
+}
+  
+  
+  
+  
+  
+  
+  
+  
